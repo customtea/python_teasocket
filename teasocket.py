@@ -7,9 +7,10 @@ from abc import abstractclassmethod
 
 from getpass import getpass
 from hashlib import sha256
+from teaauth import TeaSecretKey, TeaPublicKey, randomstring
 
 __author__ = 'Github @customtea'
-__version__ = '3.1.0'
+__version__ = '4.0.0'
 
 
 SEND_CMDPREFIX = b"\x11"
@@ -26,13 +27,16 @@ class ClientState(Enum):
     CMD = 40
 
 
-class ClientCmd(Enum):
+class CtrlCode(Enum):
+    ACK         = "ACK"
+    NAK         = "NAK"
     TEXTBEG     = "STX"
     TEXTEND     = "ETX"
     TEXTFLUSH   = "FTX"
     KEYWAIT     = "KEY"
     SHELLWAIT   = "KSH"
     PASSWAIT    = "KPS"
+    AUTHWAIT    = "KAU"
     CMDBEG      = "SVC"
     CMDEND      = "EVC"
     CLOSE       = "EDT"
@@ -42,16 +46,16 @@ class TeaSession():
     def __init__(self, soc: socket.socket) -> None:
         self.soc = soc
     
-    def _sendcmd(self, cmd: ClientCmd):
+    def _sendcmd(self, cmd: CtrlCode):
         self.soc.sendall(SEND_CMDPREFIX + cmd.value.encode("utf8"))
     
     def _textbeg(self):
-        self._sendcmd(ClientCmd.TEXTBEG)
+        self._sendcmd(CtrlCode.TEXTBEG)
     def _textend(self):
-        self._sendcmd(ClientCmd.TEXTEND)
+        self._sendcmd(CtrlCode.TEXTEND)
 
     def close(self):
-        self._sendcmd(ClientCmd.CLOSE)
+        self._sendcmd(CtrlCode.CLOSE)
 
     def sendtext(self, text: str):
         self.soc.sendall(text.encode("utf8"))
@@ -67,16 +71,32 @@ class TeaSession():
         self._textend()
     
     def keywait(self):
-        self._sendcmd(ClientCmd.KEYWAIT)
+        self._sendcmd(CtrlCode.KEYWAIT)
         return self.soc.recv(BUFSIZE).decode("utf8")
 
     def shellwait(self):
-        self._sendcmd(ClientCmd.SHELLWAIT)
+        self._sendcmd(CtrlCode.SHELLWAIT)
         return self.soc.recv(BUFSIZE).decode("utf8")
-
+    
     def passwait(self):
-        self._sendcmd(ClientCmd.PASSWAIT)
+        self._sendcmd(CtrlCode.PASSWAIT)
         return self.soc.recv(BUFSIZE)
+
+    def auth(self, publickey) -> bool:
+        tpk = TeaPublicKey(publickey)
+        org_cc, sig, res_cc = self.challnge()
+        if org_cc == res_cc:
+            return tpk.verify(sig, org_cc.encode("utf8"))
+        return False
+
+    def challnge(self) -> (str, str):
+        challenge_code = randomstring(32)
+        self._sendcmd(CtrlCode.AUTHWAIT)
+        self.soc.sendall(challenge_code.encode("utf8"))
+        rmsg = self.soc.recv(BUFSIZE).decode("utf8")
+        sig, res_cc = rmsg.split(",")
+        if challenge_code == res_cc:
+            return challenge_code, sig, res_cc
     
     @abstractclassmethod
     def service(self): 
@@ -148,22 +168,22 @@ class TeaClient():
                         cmd_text = c1 + c2 +c3
                         if debug:
                             print(f"CMD: {cmd_text}")
-                        cmd = ClientCmd(cmd_text)
+                        cmd = CtrlCode(cmd_text)
 
-                        if cmd is ClientCmd.TEXTBEG:
+                        if cmd is CtrlCode.TEXTBEG:
                             self.__state = ClientState.TEXT
 
-                        elif cmd is ClientCmd.TEXTEND:
+                        elif cmd is CtrlCode.TEXTEND:
                             self.__state = ClientState.NOP
                             sys.stdout.flush()
 
-                        elif cmd is ClientCmd.TEXTFLUSH:
+                        elif cmd is CtrlCode.TEXTFLUSH:
                             sys.stdout.flush()
 
-                        elif cmd is ClientCmd.CLOSE:
+                        elif cmd is CtrlCode.CLOSE:
                             self.__state = ClientState.CLOSE
 
-                        elif cmd is ClientCmd.KEYWAIT:
+                        elif cmd is CtrlCode.KEYWAIT:
                             self.__state = ClientState.KEYWAIT
                             sys.stdout.flush()
                             while True:
@@ -173,7 +193,7 @@ class TeaClient():
                             self.__soc.sendall(s_msg.encode("utf8"))
                             self.__state = ClientState.NOP
 
-                        elif cmd is ClientCmd.SHELLWAIT:
+                        elif cmd is CtrlCode.SHELLWAIT:
                             self.__state = ClientState.KEYWAIT
                             while True:
                                 sys.stdout.flush()
@@ -184,22 +204,37 @@ class TeaClient():
                             self.__soc.sendall(s_msg.encode("utf8"))
                             self.__state = ClientState.NOP
 
-                        elif cmd is ClientCmd.PASSWAIT:
+                        elif cmd is CtrlCode.PASSWAIT:
                             self.__state = ClientState.KEYWAIT
                             sys.stdout.flush()
                             while True:
                                 sys.stdout.flush()
-                                passwd_plain = getpass()
-                                if passwd_plain != "":
+                                prv_key = getpass()
+                                if prv_key != "":
                                     break
-                            passwd_hash = sha256(passwd_plain.encode()).digest()
+                            passwd_hash = sha256(prv_key.encode()).digest()
                             self.__soc.sendall(passwd_hash)
                             self.__state = ClientState.NOP
 
-                        elif cmd is ClientCmd.CMDBEG:
+                        elif cmd is CtrlCode.AUTHWAIT:
+                            self.__state = ClientState.KEYWAIT
+                            sys.stdout.flush()
+                            cc = self.__soc.recv(BUFSIZE)
+                            while True:
+                                sys.stdout.flush()
+                                prv_key = getpass()
+                                if prv_key != "":
+                                    break
+                            tsk = TeaSecretKey.password(prv_key)
+                            sig = tsk.sign(cc)
+                            smsg = f"{sig},{cc.decode('utf8')}"
+                            self.__soc.sendall(smsg.encode("utf8"))
+                            self.__state = ClientState.NOP
+
+                        elif cmd is CtrlCode.CMDBEG:
                             self.__state = ClientState.CMD
 
-                        elif cmd is ClientCmd.CMDEND:
+                        elif cmd is CtrlCode.CMDEND:
                             self.__state = ClientState.NOP
 
                     else:

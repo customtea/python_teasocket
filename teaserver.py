@@ -5,8 +5,13 @@ class TestSession(TeaSession):
         print(self.soc)
         self.print("Welcome")
         self.print("login: ", end="")
-        text = self.keywait()
-        print(text)
+        user = self.keywait()
+        print(user)
+        authres = self.auth("c4db4fd18c68690d10e100a9077d08ca722116ef39896a63b9eae5dd4f8aebfa")
+        if authres:
+            self.print("Success")
+        else:
+            self.print("Incorrect User")
         self.print()
         self.close()
 
