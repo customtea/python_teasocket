@@ -129,7 +129,7 @@ class TeaSession():
         self.soc.sendall(pubkey)
         rmsg = self.soc.recv(BUFSIZE)
         self.session_key = self.session_ecdhe.get_sharekey(rmsg)
-        self.aes = TeaAESCipher.new(self.session_key)
+        self.aes = TeaAESCipher.new(sha256(self.session_key).digest())
         self.is_encryption = True
     
     def plain_text(self):
@@ -314,7 +314,7 @@ class TeaClient():
             rmsg = self.__soc.recv(BUFSIZE)
             self.__session_key = self.__session_ecdhe.get_sharekey(rmsg)
             self.__soc.sendall(pubkey)
-            self.__aes = TeaAESCipher.new(self.__session_key)
+            self.__aes = TeaAESCipher.new(sha256(self.__session_key).digest())
             self.__is_encryptionmode = True
             return
         
