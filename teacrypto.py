@@ -29,13 +29,13 @@ class TeaAESCipher():
     def get_salt(self):
         return self.__salt
 
-    def encrypt(self, raw):
+    def encrypt(self, raw: bytes):
         iv = Random.get_random_bytes(AES.block_size)
         cipher = AES.new(self.__key, AES.MODE_CBC, iv)
         data = Padding.pad(raw, AES.block_size, 'pkcs7')
         return iv + cipher.encrypt(data)
 
-    def decrypt(self, data):
+    def decrypt(self, data: bytes):
         iv = data[:AES.block_size]
         cipher = AES.new(self.__key, AES.MODE_CBC, iv)
         data = Padding.unpad(cipher.decrypt(data[AES.block_size:]), AES.block_size, 'pkcs7')
@@ -59,12 +59,12 @@ class TeaECDHE():
         ).derive(shared_key)
         return derived_key
     
-    def get_sharekey(self, pair_pubkey):
-        pubkey = serialization.load_ssh_public_key(pair_pubkey)
+    def get_sharekey(self, pair_pubkey: str):
+        pubkey = serialization.load_ssh_public_key(pair_pubkey.encode("utf8"))
         return self.__make_shared_key(pubkey)
     
     def get_pubkey(self):
-        return self.__pub_key.public_bytes(encoding=serialization.Encoding.OpenSSH, format=serialization.PublicFormat.OpenSSH)
+        return self.__pub_key.public_bytes(encoding=serialization.Encoding.OpenSSH, format=serialization.PublicFormat.OpenSSH).decode("utf8")
 
 
 if __name__ == '__main__':
@@ -73,6 +73,7 @@ if __name__ == '__main__':
     b = TeaECDHE()
     pa = a.get_pubkey()
     pb = b.get_pubkey()
+    print(pa, pb)
     
     sa = a.get_sharekey(pb)
     sb = b.get_sharekey(pa)
@@ -81,7 +82,7 @@ if __name__ == '__main__':
     
     a = TeaAESCipher.new(sa)
     s = a.get_salt()
-    c = a.encrypt(targetText)
+    c = a.encrypt(targetText.encode("utf8"))
     print(c.hex())
     
     b = TeaAESCipher(sb, s)
