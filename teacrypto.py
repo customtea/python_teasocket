@@ -7,6 +7,9 @@ from Crypto import Random
 from Crypto.Util import Padding
 from hashlib import sha256
 
+__author__ = 'https://github.com/customtea/'
+__version__ = '1.1.0'
+
 class TeaAESCipher():
     # https://gist.github.com/5S/4b9179e6b71fb9a74b9c30fca266d7d2
     def __init__(self, key: bytes, salt=None):

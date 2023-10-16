@@ -1,7 +1,7 @@
 # inspired FIDO2
 
-__author__ = 'Github @customtea'
-__version__ = '1.0.0'
+__author__ = 'https://github.com/customtea/'
+__version__ = '1.1.0'
 
 from ecdsa import Ed25519, SigningKey, VerifyingKey, BadSignatureError
 from hashlib import sha256
@@ -35,6 +35,9 @@ class TeaPublicKey():
     def __init__(self, pubhexkey) -> None:
         self.__pub_key = VerifyingKey.from_string(bytes.fromhex(pubhexkey), curve=Ed25519)
         self.__challenge_code = None
+
+    def get_publickey(self):
+        return self.__pub_key.to_string().hex()
     
     def challenge(self):
         self.__challenge_code = randomstring(32)

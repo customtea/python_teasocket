@@ -2,9 +2,6 @@ from enum import Enum
 import json
 import typing
 
-from teaauth import TeaSecretKey, TeaPublicKey, randomstring
-from teacrypto import TeaECDHE, TeaAESCipher
-
 __author__ = 'https://github.com/customtea/'
 __version__ = '6.1.0'
 
