@@ -24,14 +24,7 @@ class CtrlType(Enum):
     KEYEXCHANGE = "KEX"
     ENCRYPT     = "ENC"
     CLOSE       = "EDT"
-
-
-def json_encode(o):
-    if isinstance(o, TeaPacket):
-        return o.__dict__
-    if isinstance(o, bytes):
-        return o.decode("utf8")
-    raise TypeError(repr(o) + " is not JSON serializable")
+    RXTHREAD    = "RXT"
 
 
 class TeaPacket():

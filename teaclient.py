@@ -3,6 +3,7 @@ from getpass import getpass
 from hashlib import sha256
 import sys
 import typing
+import threading
 
 from teapacket import TeaPacket, BUFSIZE, CtrlType, __author__, __version__
 from teaauth import TeaSecretKey
@@ -71,7 +72,11 @@ class TeaClient():
 
         if msgtype is CtrlType.KEYREQ:
             while True:
-                s_msg = input(pkt.content)
+                if not pkt.content:
+                    prompt = ""
+                else:
+                    prompt = pkt.content
+                s_msg = input(prompt)
                 if s_msg != "":
                     break
             self.send(TeaPacket.keyres(s_msg))
@@ -129,6 +134,7 @@ class TeaClient():
                 self.act(rpacket)
 
         except KeyboardInterrupt:
+            self.send(TeaPacket.close())
             print("Abort")
         except ConnectionRefusedError:
             print("No Connection")
