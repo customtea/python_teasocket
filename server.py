@@ -2,7 +2,6 @@ from teaserver import TeaServer, TeaSession
 
 class TestSession(TeaSession):
     def service(self):
-        print(self.soc)
         self.print("Welcome")
         # self.print("login: ", end="")
         # user = self.keywait()

@@ -10,35 +10,35 @@ from teacrypto import TeaAESCipher, TeaECDHE
 
 class TeaSession():
     def __init__(self, soc: socket.socket) -> None:
-        self.soc = soc
-        self.is_encryption = False
-        self.recv_data: list[chr] = []
-        self.msg = ""
-        self.braket_count = 0
+        self.__soc = soc
+        self.__is_encryption = False
+        self.__recv_data: list[chr] = []
+        self.__msg = ""
+        self.__braket_count = 0
 
     def send(self, data: bytes):
-        if self.is_encryption:
+        if self.__is_encryption:
             data = self.aes.encrypt(data).hex()
-            self.soc.sendall(TeaPacket.encrypt(data))
+            self.__soc.sendall(TeaPacket.encrypt(data))
         else:
-            self.soc.sendall(data)
+            self.__soc.sendall(data)
     
     def recv(self) -> TeaPacket:
         while True:
-            if not self.recv_data:
-                self.recv_data += list(self.soc.recv(BUFSIZE).decode("utf8"))
-            while self.recv_data:
-                c = self.recv_data.pop(0)
+            if not self.__recv_data:
+                self.__recv_data += list(self.__soc.recv(BUFSIZE).decode("utf8"))
+            while self.__recv_data:
+                c = self.__recv_data.pop(0)
                 if c == "{":
-                    self.braket_count += 1
+                    self.__braket_count += 1
                 elif c == "}":
-                    self.braket_count -= 1
-                self.msg += c
-                if self.braket_count == 0:
-                    msgp = TeaPacket.parse(self.msg)
-                    self.msg = ""
+                    self.__braket_count -= 1
+                self.__msg += c
+                if self.__braket_count == 0:
+                    msgp = TeaPacket.parse(self.__msg)
+                    self.__msg = ""
                     break
-            if self.braket_count != 0:
+            if self.__braket_count != 0:
                 continue
 
             # print("DEBUG", msgp, flush=True)
@@ -96,11 +96,11 @@ class TeaSession():
     def keyexchange(self):
         self.session_ecdhe = TeaECDHE()
         pubkey = self.session_ecdhe.get_pubkey()
-        self.soc.sendall(TeaPacket.keyexchange(pubkey))
+        self.__soc.sendall(TeaPacket.keyexchange(pubkey))
         rpacket = self.recv()
         self.session_key = self.session_ecdhe.get_sharekey(rpacket.content)
         self.aes = TeaAESCipher.new(sha256(self.session_key).digest())
-        self.is_encryption = True
+        self.__is_encryption = True
     
     @abstractclassmethod
     def service(self): 
@@ -167,8 +167,8 @@ class TeaServer():
         soc.sendall(TeaPacket.ack())
         try:
             SS = self.session(soc)
-            SS.recv_data = recv_data
-            SS.braket_count = braket_count
+            SS.__recv_data = recv_data
+            SS.__braket_count = braket_count
             SS.service()
         except ConnectionResetError:
             return
